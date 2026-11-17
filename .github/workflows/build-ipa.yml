@@ -1,0 +1,63 @@
+# Build unsigned IPA (no Apple Developer account needed for the build)
+# Runs on a free GitHub macOS runner. The result is an UNSIGNED .ipa
+# (Payload/MediaClick.app) — sideload it with AltStore or Sideloadly
+# using a free Apple ID (see BUILD_IPA.md).
+#
+# Repo layout: this workflow file at .github/workflows/build-ipa.yml
+# plus mediaclick.zip at the repo root (contains the MediaClick/
+# Xcode project folder). The workflow unzips it, then builds.
+# Adapted 2026-11-17 from the project's original workflow (which
+# expected the project folder checked out directly): added the unzip
+# step, removed the paths filter so the zip push triggers the build,
+# and added a shared scheme (MediaClick.xcscheme) to the project —
+# xcodebuild needs a shared scheme to build from the command line.
+
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          test -f mediaclick.zip || { echo "mediaclick.zip not found"; ls -la; exit 1; }
+          unzip -q mediaclick.zip
+          ls MediaClick/MediaClick.xcodeproj
+
+      - name: Select Xcode 15
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer || sudo xcode-select -p
+
+      - name: Build (no signing)
+        run: |
+          xcodebuild -project MediaClick/MediaClick.xcodeproj \
+            -scheme MediaClick \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH="build/Build/Products/Release-iphoneos/MediaClick.app"
+          test -d "$APP_PATH" || { echo "MediaClick.app not found"; ls -R build/Build/Products || true; exit 1; }
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+          zip -r MediaClick-unsigned.ipa Payload
+          ls -la MediaClick-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: MediaClick-unsigned.ipa
+          path: MediaClick-unsigned.ipa
+          if-no-files-found: error
