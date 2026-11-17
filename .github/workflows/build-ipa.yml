@@ -11,6 +11,10 @@
 # step, removed the paths filter so the zip push triggers the build,
 # and added a shared scheme (MediaClick.xcscheme) to the project —
 # xcodebuild needs a shared scheme to build from the command line.
+# NOTE 2026-11-17: runs-on changed from macos-14 to macos-latest
+# because GitHub rejected macos-14: "The configuration
+# 'macos-14-arm64-us-default' is not supported" (run 43997978371
+# was cancelled in 2s with no runner assigned).
 
 name: Build unsigned IPA
 
@@ -21,7 +25,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
